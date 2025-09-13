@@ -1,0 +1,45 @@
+name: Deployment from STG branch
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches: 
+      [ stg ]
+    paths:
+    - '**'
+    
+  # Allow manual trigger 
+  workflow_dispatch:      
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions: 
+      id-token: write #This is required for requesting the OIDC JWT Token
+      contents: read #Required when GH token is used to authenticate with private repo
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v2
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.DATOPUSAPI_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.DATOPUSAPI_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.DATOPUSAPI_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push container image to Azure Container Registry
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          appSourcePath: ${{ github.workspace }}
+          registryUrl: datopus.azurecr.io
+          registryUsername: ${{ secrets.DATOPUSAPI_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.DATOPUSAPI_REGISTRY_PASSWORD }}
+          imageToBuild: datopus.azurecr.io/datopusapi-staging:${{ github.sha }}
+          dockerfilePath: Dockerfile.txt
+          containerAppName: datopusapi-staging
+          resourceGroup: RG1
+
+
